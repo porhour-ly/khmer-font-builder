@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+.venv
+
+# Local image experiments, not part of the app
+input/
+work/
+test fonts from images/
+segment.py

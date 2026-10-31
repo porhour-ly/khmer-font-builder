@@ -1,0 +1,21 @@
+{
+  "name": "khmer-letter-pad",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run",
+    "dev:api": ".venv/bin/python scripts/dev_api.py",
+    "test:font": ".venv/bin/python tests/font/test_font.py"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "fake-indexeddb": "^6.2.6",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5",
+    "vitest": "^3.2.7"
+  }
+}
