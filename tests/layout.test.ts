@@ -133,6 +133,51 @@ describe('ខ្ញុំ', () => {
   });
 });
 
+describe('joined consonant + vowel pairs', () => {
+  const PAIR: Box = { left: 300, right: 820, top: 330, bottom: 680 };
+  const pairMetrics: GlyphMetrics = { box: PAIR, anchorBox: REF, lsb: 40, rsb: 40 };
+  const withPairs = (id: string) => (id === 'lig-u1780-u17b6' || id === 'lig-u1780-u17c4' ? pairMetrics : get(id));
+
+  it('uses the separate vowel until the pair is drawn', () => {
+    expect(shape('កា').glyphs.map((g) => g.id)).toEqual(['u1780', 'u17b6']);
+  });
+
+  it('swaps in the drawn pair', () => {
+    const r = shapeCluster('កា', withPairs, opts);
+    expect(r.type === 'glyphs' && r.glyphs.map((g) => g.id)).toEqual(['lig-u1780-u17b6']);
+  });
+
+  it('keeps េ separate before a joined ោ', () => {
+    const r = shapeCluster('កោ', withPairs, opts);
+    if (r.type !== 'glyphs') throw new Error();
+    expect(r.glyphs.map((g) => g.id)).toEqual(['lig-u1780-u17c4', 'u17c1']);
+    expect(placedBox({ ...r.glyphs[1], id: 'u17c1' }).right).toBeLessThanOrEqual(PAIR.left + r.glyphs[0].x);
+  });
+
+  it('centres a subscript on the consonant part, not the whole pair', () => {
+    const r = shapeCluster('ក្មា', withPairs, opts);
+    if (r.type !== 'glyphs') throw new Error();
+    expect(r.glyphs.map((g) => g.id)).toEqual(['lig-u1780-u17b6', 'sub-u1798']);
+    const sub = placedBox(r.glyphs[1]);
+    expect((sub.left + sub.right) / 2).toBeCloseTo((REF.left + REF.right) / 2 + r.glyphs[0].x);
+  });
+
+  it('puts ំ on the ា part of a joined pair', () => {
+    const r = shapeCluster('កាំ', withPairs, opts);
+    if (r.type !== 'glyphs') throw new Error();
+    expect(r.glyphs.map((g) => g.id)).toEqual(['lig-u1780-u17b6', 'u17c6']);
+    const am = placedBox(r.glyphs[1]);
+    const aaCentre = (REF.right + PAIR.right) / 2 + r.glyphs[0].x;
+    expect((am.left + am.right) / 2).toBeCloseTo(aaCentre + 5); // this ំ is drawn 5 units right of centre
+  });
+
+  it('lets the ញ alternate win, as the font does', () => {
+    const lookup = (id: string) => (id === NYO_ALT_ID ? base() : id === 'lig-u1789-u17b6' ? pairMetrics : get(id));
+    const r = shapeCluster('ញ្ជា', lookup, opts);
+    expect(r.type === 'glyphs' && r.glyphs[0].id).toBe(NYO_ALT_ID);
+  });
+});
+
 describe('special cases', () => {
   it('splits ោ into េ before the base and the rest after it', () => {
     const r = shape('កោ');
@@ -143,6 +188,19 @@ describe('special cases', () => {
     ]);
     expect(placedBox(r.glyphs[1]).right).toBeLessThanOrEqual(placedBox(r.glyphs[0]).left);
     expect(placedBox(r.glyphs[2]).left).toBeGreaterThanOrEqual(placedBox(r.glyphs[0]).right);
+  });
+
+  it('puts ំ on top of a separate ា: ាំ is one vowel', () => {
+    const [, aa, am] = shape('កាំ').glyphs;
+    const aaBox = placedBox(aa);
+    const amBox = placedBox(am);
+    expect((amBox.left + amBox.right) / 2).toBeCloseTo((aaBox.left + aaBox.right) / 2 + 5);
+    expect(amBox.bottom).toBeLessThanOrEqual(aaBox.top);
+  });
+
+  it('keeps ំ over the base when there is no ា', () => {
+    const [k, am] = shape('កំ').glyphs;
+    expect((placedBox(am).left + placedBox(am).right) / 2).toBeCloseTo((placedBox(k).left + placedBox(k).right) / 2 + 5);
   });
 
   it('puts េ to the left of coeng-ro when both are present', () => {

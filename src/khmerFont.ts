@@ -92,6 +92,18 @@ export function eraseKhmerBase(ctx: CanvasRenderingContext2D, base: string, base
   ctx.restore();
 }
 
+/** Width of a prebase part in front of a letter. Measured in context: on its own it gets a dotted circle. */
+export function prebaseWidth(base: string, part: string): number {
+  return systemTextWidth(base + part) - systemTextWidth(base);
+}
+
+/** Clears everything left of `base` in a cluster centred with drawKhmerCentered. */
+export function eraseKhmerPrebase(ctx: CanvasRenderingContext2D, text: string, base: string, part: string, cx: number): void {
+  const m = measurer().measureText(text);
+  const x = cx - (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / 2 + m.actualBoundingBoxLeft;
+  ctx.clearRect(0, 0, x + prebaseWidth(base, part), ctx.canvas.height);
+}
+
 /** Draws text in the system Khmer font, sitting on the baseline, with its ink centred at cx. */
 export function drawKhmerCentered(ctx: CanvasRenderingContext2D, text: string, cx: number, color: string): void {
   ctx.save();

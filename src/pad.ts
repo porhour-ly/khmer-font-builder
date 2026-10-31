@@ -449,10 +449,10 @@ export function mountPad(root: HTMLElement, glyphId: string): () => void {
       return;
     }
     if (def.optional) celebrateSave(saveBtn, 0, 0, 1);
-    toast(`Saved ${letter.char}  ·  ${after}/${catTotal}`);
+    toast(def.optional ? `Saved ${letter.char}` : `Saved ${letter.char}  ·  ${after}/${catTotal}`);
     if (!wasDone) {
       // Keep the flow going: jump to the next glyph that isn't done yet.
-      const next = [...LIST.slice(index + 1), ...LIST.slice(0, index)].find((l) => !l.optional && !store.isDone(l.id));
+      const next = [...LIST.slice(index + 1), ...LIST.slice(0, index)].find((l) => (!l.optional || l.category === 'pair') && !store.isDone(l.id));
       if (next) setTimeout(() => go(next.id), 650);
     }
   };

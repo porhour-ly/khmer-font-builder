@@ -11,6 +11,7 @@
  *   u1780        a single character (ក), named after its code point
  *   sub-u1798    a subscript consonant (្ម, coeng + ម)
  *   u1789.alt    ញ shape used when it carries a subscript (optional)
+ *   lig-u1780-u17b6  a consonant and vowel drawn as one joined shape (កា, optional)
  *
  * How marks are positioned: every dependent glyph (vowel, sign, subscript)
  * is drawn in the same em as a reference letter (its own consonant for
@@ -87,7 +88,17 @@ export const MARK_KINDS: Record<string, MarkKind> = {
 export const SPLIT_VOWELS = new Set(['ើ', 'ឿ', 'ៀ', 'ោ', 'ៅ']);
 export const SPLIT_LEFT_PART = 'េ';
 
+/**
+ * Vowels that join the consonant and change its shape. Each consonant + vowel
+ * can be drawn as one glyph; a pair that isn't drawn uses the separate vowel.
+ * For ោ and ៅ the pair holds the consonant and right part: េ stays separate.
+ */
+export const PAIR_VOWELS = ['ា', 'ោ', 'ៅ'];
+
 export const glyphIdFor = (ch: string) => 'u' + cp(ch).toString(16);
+const AA_ID = glyphIdFor('ា');
+const NIKAHIT_ID = glyphIdFor('ំ');
+export const pairIdFor = (consonant: string, vowel: string) => `lig-${glyphIdFor(consonant)}-${glyphIdFor(vowel)}`;
 export const subscriptIdFor = (consonant: string) => 'sub-' + glyphIdFor(consonant);
 /** Coeng-ro is written to the left of the base; all other subscripts go below. */
 export const subscriptKind = (consonant: string): MarkKind => (consonant === RO ? 'left' : 'below');
@@ -150,6 +161,8 @@ export function parseCluster(cluster: string): ParsedCluster {
 export interface GlyphMetrics {
   /** Ink bounds in the glyph's own em. */
   box: Box;
+  /** Joined pairs: the consonant part, which marks and subscripts centre on. */
+  anchorBox?: Box;
   /** Ink bounds of the reference base the glyph was drawn against (dependent glyphs). */
   ref?: Box;
   /** Manual nudge, added after positioning. */
@@ -194,11 +207,15 @@ interface Component {
 /** The glyphs a cluster needs, in placement order. */
 export function clusterComponents(p: ParsedCluster, has: (id: string) => boolean): Component[] {
   if (!p.base) return [];
-  const baseId = p.base === NYO && p.subscripts.length && has(NYO_ALT_ID) ? NYO_ALT_ID : glyphIdFor(p.base);
+  const useAlt = p.base === NYO && p.subscripts.length > 0 && has(NYO_ALT_ID);
+  const pairVowel = useAlt || !isConsonant(p.base) ? undefined : p.marks.find((m) => PAIR_VOWELS.includes(m));
+  const pairId = pairVowel && has(pairIdFor(p.base, pairVowel)) ? pairIdFor(p.base, pairVowel) : null;
+  const baseId = pairId ?? (useAlt ? NYO_ALT_ID : glyphIdFor(p.base));
   const parts: Component[] = [{ id: baseId, kind: 'base' }];
   for (const c of p.subscripts) parts.push({ id: subscriptIdFor(c), kind: subscriptKind(c) });
   for (const m of p.marks) {
     if (SPLIT_VOWELS.has(m)) parts.push({ id: glyphIdFor(SPLIT_LEFT_PART), kind: 'left' });
+    if (pairId && m === pairVowel) continue; // already part of the joined glyph
     parts.push({ id: glyphIdFor(m), kind: MARK_KINDS[m] });
   }
   return parts;
@@ -237,13 +254,16 @@ export function shapeCluster(cluster: string, get: MetricsLookup, opts: LayoutOp
   const gap = opts.gap ?? 20;
   const bearing = opts.defaultBearing ?? 40;
   const baseM = metrics[0]!;
-  const bb = baseM.box;
-  let leftEdge = bb.left;
-  let rightEdge = bb.right;
+  const bb = baseM.anchorBox ?? baseM.box;
+  let leftEdge = baseM.box.left;
+  let rightEdge = baseM.box.right;
   let above: Box | null = null;
   let below: Box | null = null;
-  let ink: Box = bb;
+  let ink: Box = baseM.box;
   const placed: PlacedGlyph[] = [{ id: comps[0].id, kind: 'base', x: 0, y: 0 }];
+  // ាំ is one vowel: ំ sits on ា, which may be a separate glyph or part of a joined pair.
+  let aaPart: Box | null =
+    comps[0].id.endsWith(`-${AA_ID}`) && baseM.anchorBox ? { ...baseM.box, left: baseM.anchorBox.right } : null;
 
   for (let i = 1; i < comps.length; i++) {
     const kind = comps[i].kind as MarkKind;
@@ -257,9 +277,11 @@ export function shapeCluster(cluster: string, get: MetricsLookup, opts: LayoutOp
     } else if (kind === 'right') {
       x = rightEdge - ref.right;
     } else {
-      x = anchorOffsetX(kind, bb, ref);
+      const onAa = comps[i].id === NIKAHIT_ID ? aaPart : null;
+      const under = onAa ?? bb;
+      x = anchorOffsetX(kind, under, ref);
       if (kind === 'above') {
-        y = Math.min(bb.top, opts.defaultRef.top) - ref.top; // taller base: lift the mark
+        y = Math.min(under.top, opts.defaultRef.top) - ref.top; // taller base: lift the mark
         if (above) {
           const b = shift(m.box, x, y);
           if (overlapsX(b, above) && b.bottom + gap > above.top) y += above.top - gap - b.bottom;
@@ -279,6 +301,7 @@ export function shapeCluster(cluster: string, get: MetricsLookup, opts: LayoutOp
     const b = shift(m.box, x, y);
     if (kind === 'left') leftEdge = Math.min(leftEdge, b.left);
     if (kind === 'right') rightEdge = Math.max(rightEdge, b.right);
+    if (comps[i].id === AA_ID) aaPart = b;
     if (kind === 'above') above = union(above, b);
     if (kind === 'below') below = union(below, b);
     ink = union(ink, b);

@@ -118,10 +118,15 @@ def main():
     # A type 3 subscript still forms.
     assert names("ក្ប") == ["uni1780", "sub.uni1794"], names("ក្ប")
 
-    # ំ after ា lands on the base, not on the vowel.
+    # ាំ is one vowel: ំ sits on top of ា, not on the consonant.
     b = boxes("កាំ")
     assert names("កាំ") == ["uni1780", "uni17B6", "uni17C6"], names("កាំ")
-    assert b["uni17C6"]["right"] <= b["uni1780"]["right"], b
+    aa_center = (b["uni17B6"]["left"] + b["uni17B6"]["right"]) / 2
+    assert abs((b["uni17C6"]["left"] + b["uni17C6"]["right"]) / 2 - (aa_center + 5)) <= 1, b
+    assert b["uni17C6"]["bottom"] >= b["uni17B6"]["top"], b
+    # Without ា, ំ stays over the consonant.
+    b = boxes("កំ")
+    assert abs((b["uni17C6"]["left"] + b["uni17C6"]["right"]) / 2 - ((b["uni1780"]["left"] + b["uni1780"]["right"]) / 2 + 5)) <= 1, b
 
     # Two above marks stack.
     b = boxes("កិ់")
@@ -135,6 +140,39 @@ def main():
     for word in ("ក្មេង", "ស្រី", "ខ្ញុំ", "កោះ", "ស្រក"):
         assert "uni25CC" not in names(word), word
     assert "uni25CC" in names("ិ"), names("ិ")
+
+    # Joined consonant + vowel pairs.
+    PAIR = {"left": 300, "right": 820, "top": 330, "bottom": 680}
+    pairs = [
+        {**glyph(gid, "base", PAIR), "anchorBox": REF, "ref": None}
+        for gid in ("lig-u1780-u17b6", "lig-u1780-u17c4", "lig-u1781-u17b6")
+    ]
+    r4 = build_font({**BUNDLE, "glyphs": GLYPHS + pairs})
+    t4 = TTFont(BytesIO(r4["ttf"]))
+    order4 = t4.getGlyphOrder()
+    f4 = hb.Font(hb.Face(hb.Blob(r4["ttf"])))
+    n4 = lambda text: [g["name"] for g in shape(f4, text, order4)]
+    assert n4("កា") == ["uni1780_uni17B6"], n4("កា")
+    assert n4("កោ") == ["uni17C1", "uni1780_uni17C4"], n4("កោ")
+    assert n4("ឯកា") != [] and "uni1780_uni17B6" in n4("កាំ"), n4("កាំ")
+    # Not drawn: falls back to the two separate glyphs.
+    assert n4("ងា") == ["uni1784", "uni17B6"], n4("ងា")
+    # A subscript between them: the pair still forms and the subscript centres on the consonant.
+    got = shape(f4, "ក្មា", order4)
+    assert [g["name"] for g in got] == ["uni1780_uni17B6", "sub.uni1798"], got
+    box4 = box_of(got[0], t4), box_of(got[1], t4)
+    consonant_center = box4[0]["left"] + 200
+    assert abs((box4[1]["left"] + box4[1]["right"]) / 2 - consonant_center) <= 1, box4
+    # ំ on a joined pair sits on the ា part (this ំ is drawn 5 units right of centre).
+    got = shape(f4, "កាំ", order4)
+    box5 = box_of(got[0], t4), box_of(got[1], t4)
+    aa_part = (box5[0]["left"] + 400 + box5[0]["right"]) / 2
+    assert abs((box5[1]["left"] + box5[1]["right"]) / 2 - (aa_part + 5)) <= 1, box5
+    # Other above marks on a pair still centre on the consonant part.
+    got = shape(f4, "កិ", order4)
+    assert got[0]["name"] == "uni1780", got
+    for word in ("កា", "កោ", "ក្មា", "ខា"):
+        assert "uni25CC" not in n4(word), word
 
     # Latin and mixed text.
     assert names("Ab") == ["lat.uni0041", "lat.uni0062"], names("Ab")

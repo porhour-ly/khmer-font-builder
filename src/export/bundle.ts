@@ -1,6 +1,7 @@
 import { GLYPHS, type GlyphDef } from '../glyphs';
 import { fitBitmapGlyph } from './raster';
-import { currentRefBox, isDraft, resolveGlyph } from '../reference';
+import { currentRefBox, isDraft, pairAnchorBox, resolveGlyph } from '../reference';
+import { glyphIdFor } from '../layout/khmer';
 import { inkBox } from '../render';
 import { store } from '../store';
 import type { InkBox } from '../types';
@@ -10,6 +11,8 @@ export interface BundleGlyph {
   id: string;
   kind: string;
   box: InkBox;
+  /** Joined pairs: the consonant part. */
+  anchorBox?: InkBox;
   ref?: InkBox;
   offset?: { x: number; y: number };
   lsb?: number;
@@ -33,7 +36,7 @@ export interface Readiness {
   ready: GlyphDef[];
   drafts: GlyphDef[];
   missing: GlyphDef[];
-  /** Subscripts that can't work yet because their consonant isn't drawn. */
+  /** Subscripts and joined pairs that can't work yet: their letters aren't all drawn. */
   blocked: GlyphDef[];
 }
 
@@ -44,7 +47,11 @@ export function readiness(): Readiness {
     ready: required.filter((d) => !!store.drawn(d.id)),
     drafts: required.filter((d) => isDraft(d.id)),
     missing: required.filter((d) => !resolveGlyph(d.id)),
-    blocked: required.filter((d) => d.category === 'subscript' && resolveGlyph(d.id) && !store.drawn(d.id.slice('sub-'.length))),
+    blocked: GLYPHS.filter((d) => {
+      if (!resolveGlyph(d.id)) return false;
+      if (d.category === 'subscript' && d.kind !== 'base') return !store.drawn(d.id.slice('sub-'.length));
+      return !!d.pairVowel && !(store.drawn(glyphIdFor(d.base)) && store.drawn(glyphIdFor(d.pairVowel)));
+    }),
   };
 }
 
@@ -82,6 +89,7 @@ export async function makeBundle(
       id: def.id,
       kind: def.kind,
       box,
+      anchorBox: pairAnchorBox(def, box),
       ref: def.kind === 'base' ? undefined : g.ref ?? defaultRef,
       offset: g.offset,
       lsb: g.lsb,

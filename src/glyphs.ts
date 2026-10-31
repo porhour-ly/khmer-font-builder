@@ -5,6 +5,8 @@ import {
   glyphIdFor,
   MARK_KINDS,
   NYO_ALT_ID,
+  PAIR_VOWELS,
+  pairIdFor,
   SPLIT_LEFT_PART,
   SPLIT_VOWELS,
   subscriptIdFor,
@@ -12,7 +14,7 @@ import {
   type PartKind,
 } from './layout/khmer';
 
-export type Category = 'consonant' | 'subscript' | 'vowel' | 'sign' | 'independent' | 'digit';
+export type Category = 'consonant' | 'subscript' | 'vowel' | 'pair' | 'sign' | 'independent' | 'digit';
 
 export interface GlyphDef {
   id: string;
@@ -37,6 +39,10 @@ export interface GlyphDef {
   split?: boolean;
   /** Not counted toward progress. */
   optional?: boolean;
+  /** Joined pair: the vowel it includes. */
+  pairVowel?: string;
+  /** Part of the ghost to remove (េ, which stays a separate glyph). */
+  ghostErase?: string;
 }
 
 export interface CategoryDef {
@@ -50,6 +56,7 @@ export const CATEGORIES: CategoryDef[] = [
   { id: 'consonant', title: 'Consonants', tab: 'Consonants' },
   { id: 'subscript', title: 'Subscripts', tab: 'Subscripts' },
   { id: 'vowel', title: 'Vowels', tab: 'Vowels' },
+  { id: 'pair', title: 'Joined vowels', tab: 'Joined' },
   { id: 'sign', title: 'Signs', tab: 'Signs' },
   { id: 'independent', title: 'Independent vowels', tab: 'Independent' },
   { id: 'digit', title: 'Digits', tab: 'Digits' },
@@ -140,11 +147,28 @@ const nyoAlt: GlyphDef = {
   optional: true,
 };
 
+const pairs: GlyphDef[] = PAIR_VOWELS.flatMap((v) =>
+  LETTERS.map((l) => ({
+    id: pairIdFor(l.char, v),
+    chars: l.char + v,
+    label: l.char + v,
+    name: l.char + v,
+    category: 'pair' as const,
+    kind: 'base' as const,
+    ghost: l.char + v,
+    base: l.char,
+    optional: true,
+    pairVowel: v,
+    ghostErase: SPLIT_VOWELS.has(v) ? SPLIT_LEFT_PART : undefined,
+  })),
+);
+
 export const GLYPHS: GlyphDef[] = [
   ...consonants,
   ...subscripts,
   nyoAlt,
   ...VOWELS.map(([c, n]) => markDef(c, n, 'vowel')),
+  ...pairs,
   ...SIGNS.map(([c, n]) => markDef(c, n, 'sign')),
   ...INDEPENDENT.map(([c, n]) => markDef(c, n, 'independent')),
   ...[...DIGITS].map((c, i) => markDef(c, String(i), 'digit')),

@@ -88,7 +88,7 @@ export function mountExport(root: HTMLElement): () => void {
       ? h(
           'p',
           { class: 'warn' },
-          '⚠️ These subscripts need their full consonant drawn before they’ll work: ',
+          '⚠️ These need their separate consonant or vowel drawn before they’ll work: ',
           h('span', { lang: 'km' }, listLabels(status.blocked)),
         )
       : null,

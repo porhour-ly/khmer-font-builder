@@ -10,6 +10,10 @@ the mini layout engine in src/layout/khmer.ts:
                    vowel's own glyph holds only its second part.
 * Above and below: zero-width marks positioned with mark-to-base (abvm, blwm)
                    and stacked with mark-to-mark (mkmk).
+* Joined pairs:    a consonant and ា ោ ៅ drawn as one shape replace the two
+                   glyphs in psts, and only when the user has drawn that pair.
+* ាំ:              one vowel, so ំ attaches to ា: by mark-to-mark on a separate
+                   ា, and through a second anchor on a joined pair.
 * Left and right:  spacing glyphs. Right parts are marked in GDEF so a following
                    above mark attaches to the real base, not to the vowel.
 
@@ -50,6 +54,9 @@ class BundleError(ValueError):
 
 def glyph_name(gid):
     """Font glyph name for an app glyph id: u1780 → uni1780, sub-u1780 → sub.uni1780."""
+    pair = re.fullmatch(r"lig-u([0-9a-f]{4,5})-u([0-9a-f]{4,5})", gid)
+    if pair:
+        return f"uni{pair.group(1).upper()}_uni{pair.group(2).upper()}"
     m = re.fullmatch(r"(sub-)?u([0-9a-f]{4,5})(\.alt)?", gid)
     if not m:
         raise BundleError(f"Unknown glyph id: {gid}")
@@ -72,6 +79,8 @@ class Placed:
         self.name = glyph_name(self.id)
         self.kind = data["kind"]
         self.box = data["box"]
+        # Joined pairs: marks and subscripts centre on the consonant part.
+        self.anchor_box = data.get("anchorBox") or self.box
         self.ref = data.get("ref") or default_ref
         off = data.get("offset") or {}
         self.off_x = off.get("x", 0)
@@ -135,11 +144,12 @@ class Placed:
         return self.fx(center(self.ref)), self.fy(y)
 
     def base_anchor(self, kind, ref):
+        box = self.anchor_box
         if kind == "above":
-            y = min(self.box["top"], ref["top"])
+            y = min(box["top"], ref["top"])
         else:
-            y = max(self.box["bottom"], ref["bottom"])
-        return self.fx(center(self.box)), self.fy(y)
+            y = max(box["bottom"], ref["bottom"])
+        return self.fx(center(box)), self.fy(y)
 
 
 def validate(bundle):
@@ -262,6 +272,24 @@ def build_features(placed, ref, has_alt):
         fea.append(f"  sub uni1789' [{names}] by uni1789.alt;")
         fea.append("} pres;")
 
+    # Joined consonant + vowel pairs. Subscripts may sit between the two, so the
+    # lookup skips every mark except these vowels. psts runs after the subscripts form.
+    pairs = []
+    for p in placed:
+        m = re.fullmatch(r"lig-u([0-9a-f]+)-u([0-9a-f]+)", p.id)
+        if m:
+            parts = "uni" + m.group(1).upper(), "uni" + m.group(2).upper()
+            if parts[0] in drawn and parts[1] in drawn:
+                pairs.append((parts, p.name))
+    if pairs:
+        vowels = sorted({parts[1] for parts, _ in pairs})
+        fea.append("feature psts {")
+        fea.append("  lookup joined_vowels {")
+        fea.append(f"    lookupflag UseMarkFilteringSet [{' '.join(vowels)}];")
+        fea.extend(f"    sub {parts[0]} {parts[1]} by {name};" for parts, name in pairs)
+        fea.append("  } joined_vowels;")
+        fea.append("} psts;")
+
     # Positioning.
     bases = by_kind["base"] + by_kind["left"]
     circle = "uni25CC"
@@ -278,6 +306,26 @@ def build_features(placed, ref, has_alt):
         fea.append(f"  pos base {circle} <anchor 250 {y}> mark {cls};")
         fea.append(f"}} {tag};")
 
+    # ាំ is one vowel: ំ sits on ា rather than on the consonant.
+    nikahit = next((p for p in by_kind["above"] if p.id == "u17c6"), None)
+    aa = next((p for p in placed if p.id == "u17b6"), None)
+    aa_pairs = [p for p in placed if p.id.startswith("lig-") and p.id.endswith("-u17b6")]
+    on_aa = []
+    if nikahit:
+        x, y = nikahit.mark_anchor()
+        fea.append(f"markClass {nikahit.name} <anchor {x} {y}> @ON_AA;")
+    if nikahit and aa_pairs:
+        fea.append("feature abvm {")
+        fea.append("  lookup nikahit_on_joined_aa {")
+        for p in aa_pairs:
+            x = p.fx((p.anchor_box["right"] + p.box["right"]) / 2)
+            fea.append(f"    pos base {p.name} <anchor {x} {p.fy(min(p.box['top'], ref['top']))}> mark @ON_AA;")
+        fea.append("  } nikahit_on_joined_aa;")
+        fea.append("} abvm;")
+    if nikahit and aa:
+        x = aa.fx(center(aa.box))
+        on_aa.append(f"  pos mark {aa.name} <anchor {x} {aa.fy(min(aa.box['top'], ref['top']))}> mark @ON_AA;")
+
     stacks = []
     for kind, cls in (("above", "@STACK_ABOVE"), ("below", "@STACK_BELOW")):
         marks = by_kind[kind]
@@ -287,9 +335,16 @@ def build_features(placed, ref, has_alt):
         for m in marks:
             x, y = m.stack_base_anchor()
             stacks.append(f"  pos mark {m.name} <anchor {x} {y}> mark {cls};")
-    if stacks:
+    if stacks or on_aa:
         fea.append("feature mkmk {")
-        fea.extend(stacks)
+        if stacks:
+            fea.append("  lookup stack_marks {")
+            fea.extend("  " + line for line in stacks)
+            fea.append("  } stack_marks;")
+        if on_aa:
+            fea.append("  lookup nikahit_on_aa {")
+            fea.extend("  " + line for line in on_aa)
+            fea.append("  } nikahit_on_aa;")
         fea.append("} mkmk;")
 
     # GDEF: right parts count as marks so above marks skip over them to the base.

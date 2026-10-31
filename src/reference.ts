@@ -1,7 +1,7 @@
 import { store } from './store';
 import { GLYPH_BY_ID, REF_BASE, type GlyphDef } from './glyphs';
 import { inkBox, renderStrokes, type View } from './render';
-import { drawKhmerAligned, drawKhmerCentered, eraseKhmerBase, systemInkBox } from './khmerFont';
+import { drawKhmerAligned, drawKhmerCentered, eraseKhmerBase, eraseKhmerPrebase, prebaseWidth, systemInkBox } from './khmerFont';
 import { anchorOffsetX, glyphIdFor, SPLIT_LEFT_PART, type Box, type GlyphMetrics, type MarkKind } from './layout/khmer';
 import { EM, GUIDES } from './metrics';
 import type { Glyph, Stroke } from './types';
@@ -9,6 +9,7 @@ import type { Glyph, Stroke } from './types';
 /** Scale of an auto-drafted subscript relative to its consonant. */
 export const DRAFT_SCALE = 0.65;
 const GHOST = 'rgba(110, 96, 190, 0.16)';
+const GHOST_SOLID = 'rgb(110, 96, 190)';
 const GHOST_COMBO = 'rgba(230, 57, 120, 0.16)';
 
 /**
@@ -58,7 +59,20 @@ export function glyphMetrics(id: string): GlyphMetrics | undefined {
   const g = resolveGlyph(id);
   const box = g && inkBox(g.strokes);
   if (!g || !box) return undefined;
-  return { box, ref: g.ref, offset: g.offset, lsb: g.lsb, rsb: g.rsb };
+  return { box, anchorBox: pairAnchorBox(GLYPH_BY_ID.get(id), box), ref: g.ref, offset: g.offset, lsb: g.lsb, rsb: g.rsb };
+}
+
+/**
+ * The consonant part of a joined pair, for centring marks and subscripts: as
+ * wide as the user's consonant, or most of the pair if that isn't drawn.
+ */
+export function pairAnchorBox(def: GlyphDef | undefined, box: Box): Box | undefined {
+  if (!def?.pairVowel) return undefined;
+  const width = box.right - box.left;
+  const own = store.drawn(glyphIdFor(def.base));
+  const ownBox = own && inkBox(own.strokes);
+  const consonant = ownBox ? Math.min(ownBox.right - ownBox.left, width) : width * 0.72;
+  return { ...box, right: box.left + consonant };
 }
 
 /**
@@ -70,6 +84,24 @@ export function frameOffset(def: GlyphDef, glyph: Glyph): { x: number; y: number
   if (def.kind === 'base') return off;
   const ref = currentRefBox(def);
   return { x: anchorOffsetX(def.kind as MarkKind, ref, glyph.ref ?? ref) + off.x, y: off.y };
+}
+
+const pairGhosts = new Map<string, HTMLCanvasElement>();
+
+/** A joined ោ or ៅ hint: the system font's cluster without its separate េ. */
+function pairGhost(def: GlyphDef): HTMLCanvasElement {
+  let canvas = pairGhosts.get(def.id);
+  if (!canvas) {
+    // Twice as wide as the em, so the cluster fits before េ comes off.
+    canvas = document.createElement('canvas');
+    canvas.width = EM * 2;
+    canvas.height = EM;
+    const ctx = canvas.getContext('2d')!;
+    drawKhmerCentered(ctx, def.ghost, EM, GHOST_SOLID);
+    eraseKhmerPrebase(ctx, def.ghost, def.base, def.ghostErase!, EM);
+    pairGhosts.set(def.id, canvas);
+  }
+  return canvas;
 }
 
 export interface Rect {
@@ -188,7 +220,13 @@ export function drawReference(ctx: CanvasRenderingContext2D, def: GlyphDef, scal
     return;
   }
   if (def.kind === 'base') {
-    if (ghost) drawKhmerCentered(ctx, def.ghost, EM / 2, GHOST);
+    if (ghost && def.ghostErase) {
+      ctx.globalAlpha = 0.16;
+      // Recentre what's left once េ has been removed from the left.
+      ctx.drawImage(pairGhost(def), -EM / 2 - prebaseWidth(def.base, def.ghostErase) / 2, 0, EM * 2, EM);
+    } else if (ghost) {
+      drawKhmerCentered(ctx, def.ghost, EM / 2, GHOST);
+    }
     ctx.restore();
     return;
   }

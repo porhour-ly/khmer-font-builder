@@ -61,6 +61,7 @@ export function mountGrid(root: HTMLElement): () => void {
     consonant: 'Draw each letter sitting on the baseline.',
     subscript: 'Draw just the subscript, in the clear area. The pink hint shows its shape, and your own consonant appears above it once you’ve drawn it. Only ណ, ល and ហ get an auto-draft, because their subscripts are small copies.',
     vowel: 'Draw each vowel in place around ក. For ើ ឿ ៀ ោ ៅ, draw only the new part: the left part reuses your េ.',
+    pair: 'Optional. Draw the consonant and vowel as one joined shape, such as កា or សា. Any you skip use the separate consonant and vowel. For pairs like កោ and កៅ, leave out the left part: it’s added for you from your េ.',
     sign: 'Draw each sign in place around ក. ។ and ៗ stand on their own.',
     independent: 'Independent vowels stand on their own, like consonants.',
     digit: 'Khmer digits stand on their own.',
@@ -102,7 +103,7 @@ export function mountGrid(root: HTMLElement): () => void {
         'a',
         { class: `tile ${d.optional ? 'optional' : ''}`, href: `#/draw/${d.id}`, 'aria-label': `Draw ${d.label} (${d.name})` },
         canvas,
-        h('span', { class: 'tile-name' }, d.optional ? 'optional' : d.name),
+        h('span', { class: 'tile-name', lang: 'km' }, d.optional && !d.pairVowel ? 'optional' : d.name),
         h('span', { class: 'tile-check' }, '✓'),
         h('span', { class: 'tile-draft' }, 'draft'),
       );
@@ -118,7 +119,7 @@ export function mountGrid(root: HTMLElement): () => void {
     const n = store.saveAll();
     if (!n) return;
     const after = store.savedCount(tab);
-    if (celebrateSave(saveAllBtn, before, after, requiredIn(tab).length)) {
+    if (requiredIn(tab).length && celebrateSave(saveAllBtn, before, after, requiredIn(tab).length)) {
       toast(store.savedCount() === REQUIRED_TOTAL ? '🎉 Every glyph is drawn! Your alphabet is complete!' : `🎉 All ${after} ${sectionTitle.textContent?.toLowerCase()} drawn!`, 4000);
     } else {
       toast(`Saved ${n} glyph${n === 1 ? '' : 's'}  ·  ${store.savedCount()}/${REQUIRED_TOTAL} in total`);
@@ -199,18 +200,23 @@ export function mountGrid(root: HTMLElement): () => void {
     ),
   );
 
+  /** Optional tabs track everything in them; the rest track required glyphs. */
+  const tabProgress = (c: Category) => {
+    const required = requiredIn(c);
+    const defs = required.length ? required : glyphsIn(c);
+    return { done: defs.filter((d) => store.isDone(d.id)).length, total: defs.length, optional: !required.length };
+  };
+
   const render = () => {
-    const required = requiredIn(tab).length;
-    const done = store.savedCount(tab);
+    const { done, total: required, optional } = tabProgress(tab);
     count.textContent = `${done}/${required}`;
     bar.style.width = `${(done / required) * 100}%`;
     totalCount.textContent = `${store.savedCount()}/${REQUIRED_TOTAL}`;
     totalCount.title = 'Glyphs saved in total';
-    banner.hidden = done < required;
+    banner.hidden = optional || done < required;
     banner.textContent = `🎉 All ${required} ${sectionTitle.textContent?.toLowerCase()} drawn!`;
     for (const c of CATEGORIES) {
-      const n = store.savedCount(c.id);
-      const t = requiredIn(c.id).length;
+      const { done: n, total: t } = tabProgress(c.id);
       const el = tabCounts.get(c.id)!;
       el.textContent = n === t ? '✓' : `${n}/${t}`;
       el.classList.toggle('complete', n === t);

@@ -30,7 +30,8 @@ How the mini Khmer layout engine ([src/layout/khmer.ts](src/layout/khmer.ts)) pl
 7. **Taller or deeper bases:** if a base reaches higher than the reference ក, above marks move up by the difference. If it reaches lower (ញ's tail), below marks move down.
 8. **ញ with a subscript:** if you draw the optional "ញ before a subscript" glyph (`u1789.alt`), it replaces ញ whenever a subscript follows. Otherwise the subscript is lowered under ញ's tail (rule 7).
 9. **Fallback:** a syllable that needs any glyph you haven't drawn is shown whole in the system font, in grey. A mark without a base gets a dotted circle (◌), as shapers do.
-10. **Auto-drafted subscripts:** a subscript you haven't drawn is a 65% copy of its consonant, placed under that consonant and marked "draft". This only applies to ្ណ ្ល ្ហ, which really are small copies. All other subscripts have their own shapes, so a shrunken consonant would mislead, and they must be drawn by hand.
+10. **Joined pairs:** ា ោ ៅ change shape as they join a consonant, so កា isn't simply ក + ា. Each consonant + vowel can be drawn whole in the Joined tab (`lig-u1780-u17b6`). A drawn pair replaces the two separate glyphs, and a pair you skip uses them. For ោ and ៅ the pair holds the consonant and right part, and េ stays separate. Subscripts and most marks centre on the consonant part, measured from your separate consonant. ំ sits on the ា part instead. The ញ alternate wins over a pair when a subscript is present.
+11. **Auto-drafted subscripts:** a subscript you haven't drawn is a 65% copy of its consonant, placed under that consonant and marked "draft". This only applies to ្ណ ្ល ្ហ, which really are small copies. All other subscripts have their own shapes, so a shrunken consonant would mislead, and they must be drawn by hand.
 
 ## How the rules become a font (Stage 3)
 
@@ -41,10 +42,12 @@ Checked against Microsoft's "Developing OpenType Fonts for Khmer Script", then b
 - **`pref`:** coeng + ro becomes ្រ. The shaper moves it before the base.
 - **`blwf`:** coeng + consonant becomes the subscript. The eight "type 3" subscripts (ឃ ឈ ឍ ប យ ឞ ស ឡ) are also in `pstf`, because Uniscribe forms those with `pstf`.
 - **`pres`:** swaps in the ញ alternate before a subscript, when drawn.
+- **`psts`:** forms joined pairs from a consonant and ា ោ ៅ. The lookup uses a mark filtering set, so a subscript between the two doesn't stop it. A pair needs its separate consonant and vowel in the font too, because the rule names them.
 - **`abvm`, `blwm`:** mark-to-base anchors for above and below glyphs, including on the dotted circle.
 - **`mkmk`:** stacks marks. Unlike the engine, it always stacks rather than only when marks collide.
 - **`dist`:** not used. Stage 2 nudges are built into the outlines.
-- **GDEF:** above, below and right glyphs are marks, so ំ after ា attaches to the consonant. Right parts keep their advance.
+- **GDEF:** above, below and right glyphs are marks, so signs other than ំ skip past right parts to the consonant. Right parts keep their advance.
+- **ាំ:** one vowel, so ំ sits on ា. On a separate ា it's mark-to-mark in `mkmk`. On a joined pair it's a second anchor in `abvm`, centred on the part of the pair right of the consonant.
 - **Split vowels:** the shaper inserts U+17C1 itself, so ោ's glyph holds only its right part.
 - **Metrics:** ascender and descender are computed from the tallest glyphs plus room for one stacked mark, so nothing clips. Line gap is 0.
 - **Differences from the preview:** spacing of left and right parts assumes the default side bearing of 40, so a heavily adjusted base can sit a little differently next to them.
@@ -57,7 +60,7 @@ Checked against Microsoft's "Developing OpenType Fonts for Khmer Script", then b
 - **Type 3 subscripts with an arm:** the spec's eight "type 3" subscripts have a right-hand arm that adds width. Here they're treated like other below marks, so they take no extra space.
 - **Subscripts of independent vowels** (coeng + ឧ etc.) aren't drawable.
 - **Taller subscripts under subscripts:** fonts often use a longer-descender form of a subscript when it sits under another. We only shift it down.
-- **Contextual forms:** ligatures such as ា joining certain consonants, and alternate vowel shapes next to particular letters, aren't implemented.
+- **Other contextual forms:** only ា ោ ៅ can be drawn joined. Other alternate vowel shapes next to particular letters aren't implemented.
 - **Robat (៌) and other rare signs** are placed like any above mark. ៎ ៏ ៑ ៝ ៈ are recognised but have no pads (not in the PRD list).
 - **Coeng-ro with a below vowel:** ក្រុ may overlap, because ្រ's tail and ុ aren't stacked against each other.
 - **Kerning** between syllables: spacing comes only from side bearings.
