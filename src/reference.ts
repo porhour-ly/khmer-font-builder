@@ -1,5 +1,5 @@
 import { store } from './store';
-import { GLYPH_BY_ID, REF_BASE, REF_BASE_ID, type GlyphDef } from './glyphs';
+import { GLYPH_BY_ID, REF_BASE, type GlyphDef } from './glyphs';
 import { inkBox, renderStrokes, type View } from './render';
 import { drawKhmerAligned, drawKhmerCentered, systemInkBox } from './khmerFont';
 import { anchorOffsetX, glyphIdFor, SPLIT_LEFT_PART, type Box, type GlyphMetrics, type MarkKind } from './layout/khmer';
@@ -11,32 +11,36 @@ export const DRAFT_SCALE = 0.65;
 const GHOST = 'rgba(110, 96, 190, 0.16)';
 const GHOST_COMBO = 'rgba(230, 57, 120, 0.16)';
 
-/** The reference base box: the user's own ក if drawn, otherwise the system font's. */
-export function currentRefBox(): Box {
-  const g = store.drawn(REF_BASE_ID);
-  return (g && inkBox(g.strokes)) || systemInkBox(REF_BASE);
+/**
+ * Ink box of a glyph's reference letter: the user's own drawing if there is
+ * one, otherwise the system font's. Defaults to ក, the shared layout reference.
+ */
+export function currentRefBox(def?: GlyphDef): Box {
+  const base = def?.base ?? REF_BASE;
+  const g = store.drawn(glyphIdFor(base));
+  return (g && inkBox(g.strokes)) || systemInkBox(base);
 }
 
 /**
- * Auto-drafted subscript: the consonant shrunk and placed under the reference
- * base. Used until the user draws the subscript themselves.
+ * Auto-drafted subscript: the consonant shrunk and placed under its own full
+ * form. Used until the user draws the subscript themselves.
  */
 export function draftGlyph(def: GlyphDef | undefined): Glyph | undefined {
   if (!def?.draftFrom || store.drawn(def.id)) return undefined;
   const src = store.drawn(def.draftFrom);
   const box = src && inkBox(src.strokes);
   if (!src || !box) return undefined;
-  const ref = currentRefBox();
+  const ref = currentRefBox(def);
   const s = DRAFT_SCALE;
   const cx = (box.left + box.right) / 2;
   const targetX = (ref.left + ref.right) / 2;
-  const top = GUIDES.baseline + 25;
+  const top = Math.max(GUIDES.baseline, ref.bottom) + 25;
   const strokes: Stroke[] = src.strokes.map((st) => ({
     ...st,
     size: st.size * s,
     points: st.points.map(([x, y, p, t]) => [targetX + (x - cx) * s, top + (y - box.top) * s, p, t]),
   }));
-  const refStamp = store.glyph(REF_BASE_ID).updatedAt;
+  const refStamp = store.glyph(glyphIdFor(def.base)).updatedAt;
   return { id: `draft:${def.id}`, char: def.chars, strokes, saved: false, updatedAt: src.updatedAt + refStamp, ref };
 }
 
@@ -64,7 +68,7 @@ export function glyphMetrics(id: string): GlyphMetrics | undefined {
 export function frameOffset(def: GlyphDef, glyph: Glyph): { x: number; y: number } {
   const off = glyph.offset ?? { x: 0, y: 0 };
   if (def.kind === 'base') return off;
-  const ref = currentRefBox();
+  const ref = currentRefBox(def);
   return { x: anchorOffsetX(def.kind as MarkKind, ref, glyph.ref ?? ref) + off.x, y: off.y };
 }
 
@@ -100,7 +104,7 @@ export function drawReference(ctx: CanvasRenderingContext2D, def: GlyphDef, scal
     return;
   }
 
-  const ref = currentRefBox();
+  const ref = currentRefBox(def);
   const refCenter = (ref.left + ref.right) / 2;
 
   if (def.kind === 'below' && def.category === 'subscript') {
@@ -111,12 +115,12 @@ export function drawReference(ctx: CanvasRenderingContext2D, def: GlyphDef, scal
     ctx.fillText('subscript zone', 14, EM - 18);
   }
 
-  if (ghost) drawKhmerAligned(ctx, def.ghost, REF_BASE, def.ghostPrebase, refCenter, GHOST_COMBO);
+  if (ghost) drawKhmerAligned(ctx, def.ghost, def.base, def.ghostPrebase, refCenter, GHOST_COMBO);
 
   const view: View = { scale, dx: 0, dy: 0 };
-  const userBase = store.drawn(REF_BASE_ID);
+  const userBase = store.drawn(glyphIdFor(def.base));
   if (userBase) drawFaint(ctx, userBase.strokes, view, 0.22);
-  else drawKhmerCentered(ctx, REF_BASE, EM / 2, 'rgba(110, 96, 190, 0.28)');
+  else drawKhmerCentered(ctx, def.base, EM / 2, 'rgba(110, 96, 190, 0.28)');
 
   if (def.split) {
     const e = store.drawn(glyphIdFor(SPLIT_LEFT_PART));

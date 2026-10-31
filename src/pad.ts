@@ -52,7 +52,7 @@ export function mountPad(root: HTMLElement, glyphId: string): () => void {
   const initial = store.glyph(letter.id);
   let strokes: Stroke[] = [...initial.strokes];
   /** Reference base box this glyph is stored against (set on its first stroke). */
-  const glyphRef = initial.ref ?? (dependent ? currentRefBox() : undefined);
+  const glyphRef = initial.ref ?? (dependent ? currentRefBox(def) : undefined);
   let offset = initial.offset ?? { x: 0, y: 0 };
   let lsb = initial.lsb ?? DEFAULT_BEARING;
   let rsb = initial.rsb ?? DEFAULT_BEARING;

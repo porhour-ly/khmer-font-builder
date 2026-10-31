@@ -13,8 +13,9 @@
  *   u1789.alt    ញ shape used when it carries a subscript (optional)
  *
  * How marks are positioned: every dependent glyph (vowel, sign, subscript)
- * is drawn in the same em as a reference base letter, and remembers that
- * base's ink box (`ref`). At layout time the glyph is moved so it keeps the
+ * is drawn in the same em as a reference letter (its own consonant for
+ * subscripts, ក for vowels and signs), and remembers that letter's ink box
+ * (`ref`). At layout time the glyph is moved so it keeps the
  * same relationship to the real base as it had to the reference base:
  *   above / below marks keep their offset from the base's centre,
  *   left parts (prebase vowels, coeng-ro) keep their offset from the base's left edge,
@@ -258,13 +259,15 @@ export function shapeCluster(cluster: string, get: MetricsLookup, opts: LayoutOp
     } else {
       x = anchorOffsetX(kind, bb, ref);
       if (kind === 'above') {
-        y = Math.min(0, bb.top - ref.top); // taller base: lift the mark
+        y = Math.min(bb.top, opts.defaultRef.top) - ref.top; // taller base: lift the mark
         if (above) {
           const b = shift(m.box, x, y);
           if (overlapsX(b, above) && b.bottom + gap > above.top) y += above.top - gap - b.bottom;
         }
       } else {
-        y = Math.max(0, bb.bottom - ref.bottom); // deeper base (e.g. ញ): lower the mark
+        // Deeper base (e.g. ញ): lower the mark. A subscript drawn under a deep
+        // letter moves back up under a normal one.
+        y = Math.max(bb.bottom, opts.defaultRef.bottom) - ref.bottom;
         if (below) {
           const b = shift(m.box, x, y);
           if (overlapsX(b, below) && b.top < below.bottom + gap) y += below.bottom + gap - b.top;

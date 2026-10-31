@@ -27,6 +27,8 @@ export interface GlyphDef {
   kind: PartKind;
   /** System-font text shown as the ghost reference. */
   ghost: string;
+  /** Letter this glyph is drawn against: its own consonant for subscripts, otherwise ក. */
+  base: string;
   /** Text whose extra width sits before the base in the ghost (prebase parts). */
   ghostPrebase?: string;
   /** Consonant id to auto-draft this subscript from. */
@@ -53,7 +55,7 @@ export const CATEGORIES: CategoryDef[] = [
   { id: 'digit', title: 'Digits', tab: 'Digits' },
 ];
 
-/** The base letter every dependent glyph is drawn against. */
+/** The base letter vowels and signs are drawn against. */
 export const REF_BASE = 'ក';
 export const REF_BASE_ID = glyphIdFor(REF_BASE);
 
@@ -79,7 +81,7 @@ const DIGITS = '០១២៣៤៥៦៧៨៩';
 
 function markDef(ch: string, name: string, category: Category): GlyphDef {
   const kind = MARK_KINDS[ch];
-  if (!kind) return { id: glyphIdFor(ch), chars: ch, label: ch, name, category, kind: 'base', ghost: ch };
+  if (!kind) return { id: glyphIdFor(ch), chars: ch, label: ch, name, category, kind: 'base', ghost: ch, base: ch };
   const split = SPLIT_VOWELS.has(ch);
   return {
     id: glyphIdFor(ch),
@@ -89,6 +91,7 @@ function markDef(ch: string, name: string, category: Category): GlyphDef {
     category,
     kind,
     ghost: REF_BASE + ch,
+    base: REF_BASE,
     ghostPrebase: split ? SPLIT_LEFT_PART : kind === 'left' ? ch : undefined,
     split,
   };
@@ -102,6 +105,7 @@ const consonants: GlyphDef[] = LETTERS.map((l) => ({
   category: 'consonant',
   kind: 'base',
   ghost: l.char,
+  base: l.char,
 }));
 
 const subscripts: GlyphDef[] = LETTERS.filter((l) => l.char !== 'ឡ').map((l) => {
@@ -114,7 +118,8 @@ const subscripts: GlyphDef[] = LETTERS.filter((l) => l.char !== 'ឡ').map((l) =
     name: `sub ${l.name}`,
     category: 'subscript',
     kind,
-    ghost: REF_BASE + COENG + l.char,
+    ghost: l.char + COENG + l.char,
+    base: l.char,
     ghostPrebase: kind === 'left' ? COENG + l.char : undefined,
     // Coeng-ro wraps around the base, so it can't be drafted from រ.
     draftFrom: kind === 'below' ? glyphIdFor(source) : undefined,
@@ -129,6 +134,7 @@ const nyoAlt: GlyphDef = {
   category: 'subscript',
   kind: 'base',
   ghost: 'ញ',
+  base: 'ញ',
   optional: true,
 };
 

@@ -157,6 +157,27 @@ describe('special cases', () => {
     expect(placedBox(r.glyphs[1]).top).toBeGreaterThanOrEqual(760);
   });
 
+  it('follows the real base when a subscript was drawn under its own consonant', () => {
+    const wide: Box = { left: 200, right: 900, top: 330, bottom: 680 }; // a wide reference letter
+    const sub = { box: { left: 450, right: 650, top: 700, bottom: 880 }, ref: wide };
+    const custom = (id: string) => (id === 'sub-u1798' ? sub : get(id));
+    const r = shapeCluster('ក្ម', custom, opts);
+    if (r.type !== 'glyphs') throw new Error();
+    const base = r.glyphs[0];
+    const placed = { left: sub.box.left + r.glyphs[1].x, right: sub.box.right + r.glyphs[1].x };
+    expect((placed.left + placed.right) / 2 - base.x).toBeCloseTo(500); // the centre of ក
+    expect(r.glyphs[1].y).toBe(0);
+  });
+
+  it('moves a subscript drawn under deep ញ back up under a normal base', () => {
+    const deepRef: Box = { ...REF, bottom: 760 };
+    const sub = { box: { left: 380, right: 620, top: 785, bottom: 960 }, ref: deepRef };
+    const custom = (id: string) => (id === 'sub-u1789' ? sub : get(id));
+    const r = shapeCluster('ក្ញ', custom, opts);
+    if (r.type !== 'glyphs') throw new Error();
+    expect(r.glyphs[1].y).toBe(-80);
+  });
+
   it('uses the ញ-with-subscript alternate when it has been drawn', () => {
     const withAlt = (id: string) => (id === NYO_ALT_ID ? base() : get(id));
     const r = shapeCluster('ញ្ជ', withAlt, opts);

@@ -1,6 +1,7 @@
 import { store } from './store';
 import { CATEGORIES, glyphsIn, requiredIn, REQUIRED_TOTAL, type Category, type GlyphDef } from './glyphs';
 import { draftGlyph, drawReference, frameOffset } from './reference';
+import { glyphIdFor } from './layout/khmer';
 import { EM } from './metrics';
 import { fitCanvas, renderStrokes } from './render';
 import { brushVersion, bumpBrushVersion } from './brushVersion';
@@ -58,7 +59,7 @@ export function mountGrid(root: HTMLElement): () => void {
 
   const HINTS: Record<Category, string> = {
     consonant: 'Draw each letter sitting on the baseline.',
-    subscript: 'Draw each subscript in the zone under ក. Most start as an auto-draft from your consonants — redraw them to make them yours.',
+    subscript: 'Draw each subscript in the zone under its own consonant. Most start as an auto-draft from that consonant, so redraw them to make them yours.',
     vowel: 'Draw each vowel in place around ក. For ើ ឿ ៀ ោ ៅ, draw only the new part: the left part reuses your េ.',
     sign: 'Draw each sign in place around ក. ។ and ៗ stand on their own.',
     independent: 'Independent vowels stand on their own, like consonants.',
@@ -227,7 +228,7 @@ export function mountGrid(root: HTMLElement): () => void {
       t.tile.classList.toggle('done', store.isDone(t.def.id));
       t.tile.classList.toggle('draft', g.strokes.length > 0 && !g.saved);
       t.tile.classList.toggle('auto-draft', !!draft);
-      const key = `${g.updatedAt}|${draft?.updatedAt ?? 0}|${w}|${fontReady}|${brushVersion()}|${store.glyph('u1780').updatedAt}`;
+      const key = `${g.updatedAt}|${draft?.updatedAt ?? 0}|${w}|${fontReady}|${brushVersion()}|${store.glyph(glyphIdFor(t.def.base)).updatedAt}|${store.glyph('u1780').updatedAt}`;
       if (key === t.key) continue;
       t.key = key;
       const dpr = fitCanvas(t.canvas, w, w);
