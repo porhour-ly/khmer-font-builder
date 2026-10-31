@@ -86,6 +86,25 @@ export function frameOffset(def: GlyphDef, glyph: Glyph): { x: number; y: number
   return { x: anchorOffsetX(def.kind as MarkKind, ref, glyph.ref ?? ref) + off.x, y: off.y };
 }
 
+/**
+ * A joined pair's hint from the user's own letters: the consonant and vowel
+ * placed as the font would place them, centred in the em. Returns false until
+ * both are drawn.
+ */
+function drawOwnPair(ctx: CanvasRenderingContext2D, def: GlyphDef, scale: number): boolean {
+  const consonant = store.drawn(glyphIdFor(def.base));
+  const vowel = store.drawn(glyphIdFor(def.pairVowel!));
+  const cBox = consonant && inkBox(consonant.strokes);
+  const vBox = vowel && inkBox(vowel.strokes);
+  if (!consonant || !vowel || !cBox || !vBox) return false;
+  const vx = anchorOffsetX('right', cBox, vowel.ref ?? cBox) + (vowel.offset?.x ?? 0);
+  const vy = vowel.offset?.y ?? 0;
+  const dx = EM / 2 - (Math.min(cBox.left, vBox.left + vx) + Math.max(cBox.right, vBox.right + vx)) / 2;
+  drawFaint(ctx, consonant.strokes, { scale, dx: dx * scale, dy: 0 }, 0.22);
+  drawFaint(ctx, vowel.strokes, { scale, dx: (dx + vx) * scale, dy: vy * scale }, 0.22);
+  return true;
+}
+
 const pairGhosts = new Map<string, HTMLCanvasElement>();
 
 /** A joined ោ or ៅ hint: the system font's cluster without its separate េ. */
@@ -220,7 +239,9 @@ export function drawReference(ctx: CanvasRenderingContext2D, def: GlyphDef, scal
     return;
   }
   if (def.kind === 'base') {
-    if (ghost && def.ghostErase) {
+    if (ghost && def.pairVowel && drawOwnPair(ctx, def, scale)) {
+      // Done: the user's own letters are the hint.
+    } else if (ghost && def.ghostErase) {
       ctx.globalAlpha = 0.16;
       // Recentre what's left once េ has been removed from the left.
       ctx.drawImage(pairGhost(def), -EM / 2 - prebaseWidth(def.base, def.ghostErase) / 2, 0, EM * 2, EM);

@@ -61,7 +61,7 @@ export function mountGrid(root: HTMLElement): () => void {
     consonant: 'Draw each letter sitting on the baseline.',
     subscript: 'Draw just the subscript, in the clear area. The pink hint shows its shape, and your own consonant appears above it once you’ve drawn it. Only ណ, ល and ហ get an auto-draft, because their subscripts are small copies.',
     vowel: 'Draw each vowel in place around ក. For ើ ឿ ៀ ោ ៅ, draw only the new part: the left part reuses your េ.',
-    pair: 'Optional. Draw the consonant and vowel as one joined shape, such as កា or សា. Any you skip use the separate consonant and vowel. For pairs like កោ and កៅ, leave out the left part: it’s added for you from your េ.',
+    pair: 'Optional. Draw the consonant and vowel as one joined shape, such as កា or សា. The hint is your own consonant and vowel once both are drawn. Any you skip use the separate consonant and vowel. For pairs like កោ and កៅ, leave out the left part: it’s added for you from your េ.',
     sign: 'Draw each sign in place around ក. ។ and ៗ stand on their own.',
     independent: 'Independent vowels stand on their own, like consonants.',
     digit: 'Khmer digits stand on their own.',
@@ -234,7 +234,7 @@ export function mountGrid(root: HTMLElement): () => void {
       t.tile.classList.toggle('done', store.isDone(t.def.id));
       t.tile.classList.toggle('draft', g.strokes.length > 0 && !g.saved);
       t.tile.classList.toggle('auto-draft', !!draft);
-      const key = `${g.updatedAt}|${draft?.updatedAt ?? 0}|${w}|${fontReady}|${brushVersion()}|${store.glyph(glyphIdFor(t.def.base)).updatedAt}|${store.glyph('u1780').updatedAt}`;
+      const key = `${g.updatedAt}|${draft?.updatedAt ?? 0}|${w}|${fontReady}|${brushVersion()}|${store.glyph(glyphIdFor(t.def.base)).updatedAt}|${t.def.pairVowel ? store.glyph(glyphIdFor(t.def.pairVowel)).updatedAt : 0}|${store.glyph('u1780').updatedAt}`;
       if (key === t.key) continue;
       t.key = key;
       const dpr = fitCanvas(t.canvas, w, w);
