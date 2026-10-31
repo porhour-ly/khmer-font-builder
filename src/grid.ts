@@ -59,7 +59,7 @@ export function mountGrid(root: HTMLElement): () => void {
 
   const HINTS: Record<Category, string> = {
     consonant: 'Draw each letter sitting on the baseline.',
-    subscript: 'Draw each subscript in the zone under its own consonant. Most start as an auto-draft from that consonant, so redraw them to make them yours.',
+    subscript: 'Draw just the subscript, in the clear area. The pink hint shows its shape, and your own consonant appears above it once you’ve drawn it. Only ណ, ល and ហ get an auto-draft, because their subscripts are small copies.',
     vowel: 'Draw each vowel in place around ក. For ើ ឿ ៀ ោ ៅ, draw only the new part: the left part reuses your េ.',
     sign: 'Draw each sign in place around ក. ។ and ៗ stand on their own.',
     independent: 'Independent vowels stand on their own, like consonants.',

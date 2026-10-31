@@ -59,8 +59,11 @@ export const CATEGORIES: CategoryDef[] = [
 export const REF_BASE = 'ក';
 export const REF_BASE_ID = glyphIdFor(REF_BASE);
 
-/** Subscripts that look like a different consonant than their own. */
-const DRAFT_SOURCE: Record<string, string> = { 'ត': 'ដ' };
+/**
+ * Subscripts that really are small copies of their consonant. Most others have
+ * a different shape, so a shrunken consonant would only mislead.
+ */
+const DRAFTABLE = new Set(['ណ', 'ហ', 'ល']);
 
 const VOWELS: [string, string][] = [
   ['ា', 'aa'], ['ិ', 'i'], ['ី', 'ii'], ['ឹ', 'eu'], ['ឺ', 'euu'], ['ុ', 'u'], ['ូ', 'uu'], ['ួ', 'ua'],
@@ -110,7 +113,6 @@ const consonants: GlyphDef[] = LETTERS.map((l) => ({
 
 const subscripts: GlyphDef[] = LETTERS.filter((l) => l.char !== 'ឡ').map((l) => {
   const kind = subscriptKind(l.char);
-  const source = DRAFT_SOURCE[l.char] ?? l.char;
   return {
     id: subscriptIdFor(l.char),
     chars: COENG + l.char,
@@ -121,8 +123,7 @@ const subscripts: GlyphDef[] = LETTERS.filter((l) => l.char !== 'ឡ').map((l) =
     ghost: l.char + COENG + l.char,
     base: l.char,
     ghostPrebase: kind === 'left' ? COENG + l.char : undefined,
-    // Coeng-ro wraps around the base, so it can't be drafted from រ.
-    draftFrom: kind === 'below' ? glyphIdFor(source) : undefined,
+    draftFrom: DRAFTABLE.has(l.char) ? l.id : undefined,
   };
 });
 
@@ -133,7 +134,8 @@ const nyoAlt: GlyphDef = {
   name: 'ញ before a subscript',
   category: 'subscript',
   kind: 'base',
-  ghost: 'ញ',
+  // Tail-less ញ has the same shape as ពា, which makes a clean tracing hint.
+  ghost: 'ពា',
   base: 'ញ',
   optional: true,
 };

@@ -77,6 +77,21 @@ export function drawKhmerAligned(
   ctx.restore();
 }
 
+/** Erases a letter placed as drawKhmerAligned places it, edges included. */
+export function eraseKhmerBase(ctx: CanvasRenderingContext2D, base: string, baseCenterX: number): void {
+  const m = measurer().measureText(base);
+  const x = baseCenterX - (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2;
+  ctx.save();
+  ctx.font = khmerFont();
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.lineWidth = 8;
+  ctx.fillText(base, x, GUIDES.baseline);
+  ctx.strokeText(base, x, GUIDES.baseline);
+  ctx.restore();
+}
+
 /** Draws text in the system Khmer font, sitting on the baseline, with its ink centred at cx. */
 export function drawKhmerCentered(ctx: CanvasRenderingContext2D, text: string, cx: number, color: string): void {
   ctx.save();

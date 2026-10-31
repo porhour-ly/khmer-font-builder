@@ -6,7 +6,7 @@ How the mini Khmer layout engine ([src/layout/khmer.ts](src/layout/khmer.ts)) pl
 
 - Every glyph is drawn in a 1000-unit em (y grows downward). Guides: ascender 140, x-height 330, baseline 680, descender 900.
 - **Base glyphs** (consonants, independent vowels, digits, ។ ៗ) stand alone. Each has a left and right side bearing (default 40), set in Spacing mode on the pad.
-- **Dependent glyphs** are drawn in position around a reference letter: ក for vowels and signs, and the subscript's own consonant for subscripts. The glyph remembers that letter's ink box (`ref`). That's your own drawing if there is one, otherwise the system font's.
+- **Dependent glyphs** are drawn in position around a reference letter: ក for vowels and signs, and the subscript's own consonant for subscripts (the subscript pad shows only your own drawn consonant, never the system font's, and limits drawing to the subscript's area). The glyph remembers that letter's ink box (`ref`). That's your own drawing if there is one, otherwise the system font's.
 - At layout time a dependent glyph keeps the same relationship to the real base as it had to its reference letter:
 
   | Kind | Glyphs | Follows the base's |
@@ -30,7 +30,7 @@ How the mini Khmer layout engine ([src/layout/khmer.ts](src/layout/khmer.ts)) pl
 7. **Taller or deeper bases:** if a base reaches higher than the reference ក, above marks move up by the difference. If it reaches lower (ញ's tail), below marks move down.
 8. **ញ with a subscript:** if you draw the optional "ញ before a subscript" glyph (`u1789.alt`), it replaces ញ whenever a subscript follows. Otherwise the subscript is lowered under ញ's tail (rule 7).
 9. **Fallback:** a syllable that needs any glyph you haven't drawn is shown whole in the system font, in grey. A mark without a base gets a dotted circle (◌), as shapers do.
-10. **Auto-drafted subscripts:** a subscript you haven't drawn is a 65% copy of its consonant, placed under that consonant and marked "draft". ្ត is drafted from ដ, which it resembles. ្រ has no draft.
+10. **Auto-drafted subscripts:** a subscript you haven't drawn is a 65% copy of its consonant, placed under that consonant and marked "draft". This only applies to ្ណ ្ល ្ហ, which really are small copies. All other subscripts have their own shapes, so a shrunken consonant would mislead, and they must be drawn by hand.
 
 ## How the rules become a font (Stage 3)
 

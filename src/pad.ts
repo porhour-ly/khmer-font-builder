@@ -1,6 +1,6 @@
 import { store } from './store';
 import { CATEGORIES, GLYPH_BY_ID, GLYPHS, glyphsIn, requiredIn, REQUIRED_TOTAL } from './glyphs';
-import { currentRefBox, draftGlyph, drawFaint, drawReference, frameOffset, isDraft } from './reference';
+import { currentRefBox, draftGlyph, drawFaint, drawReference, frameOffset, isDraft, isSubscript, subscriptRegions } from './reference';
 import { inkBox } from './render';
 import { EM, GUIDES } from './metrics';
 import { compositeLayer, fitCanvas, renderStrokes, StrokeRenderer, type View } from './render';
@@ -102,7 +102,7 @@ export function mountPad(root: HTMLElement, glyphId: string): () => void {
         ctx.fillText(label, 14, y - 8);
       }
     }
-    drawReference(ctx, def, view.scale, store.settings.ghost);
+    drawReference(ctx, def, view.scale, store.settings.ghost, true);
     const draft = !strokes.length ? draftGlyph(def) : undefined;
     if (draft) drawFaint(ctx, draft.strokes, view, 0.35);
   };
@@ -233,6 +233,14 @@ export function mountPad(root: HTMLElement, glyphId: string): () => void {
     }
   };
 
+  /** Subscript pads only take strokes in the subscript's own area. */
+  const regions = isSubscript(def) ? subscriptRegions(def) : null;
+  const canDrawAt = (e: PointerEvent) => {
+    if (!regions) return true;
+    const [x, y] = unitsAt(e);
+    return regions.some((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom);
+  };
+
   let t0 = 0;
   const onDown = (e: PointerEvent) => {
     if (active) return;
@@ -243,6 +251,10 @@ export function mountPad(root: HTMLElement, glyphId: string): () => void {
     e.preventDefault();
     if (mode !== 'draw') {
       startDrag(e);
+      return;
+    }
+    if (!canDrawAt(e)) {
+      toast('Draw the subscript in the clear area', 1400);
       return;
     }
     try {
@@ -278,6 +290,7 @@ export function mountPad(root: HTMLElement, glyphId: string): () => void {
     const events = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
     const pts = active.stroke.points;
     for (const ev of events.length ? events : [e]) {
+      if (!canDrawAt(ev)) continue;
       const p = toPoint(ev, t0);
       const last = pts[pts.length - 1];
       if (Math.hypot(p[0] - last[0], p[1] - last[1]) >= 1.2) pts.push(p);

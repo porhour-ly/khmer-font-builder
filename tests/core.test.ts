@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../src/rng';
 import { LETTERS, idFor } from '../src/letters';
+import { GLYPHS } from '../src/glyphs';
 import { makeBackup, parseBackup, SCHEMA_VERSION } from '../src/backup';
 import type { Settings } from '../src/types';
 
@@ -20,6 +21,13 @@ describe('letters', () => {
     expect(new Set(LETTERS.map((l) => l.id)).size).toBe(33);
     expect(idFor('ក')).toBe('u1780');
     expect(LETTERS.at(-1)!.char).toBe('អ');
+  });
+});
+
+describe('subscript drafts', () => {
+  it('only drafts subscripts that are small copies of their consonant', () => {
+    const drafted = GLYPHS.filter((g) => g.draftFrom).map((g) => g.chars.slice(1));
+    expect(drafted.sort()).toEqual(['ណ', 'ល', 'ហ'].sort());
   });
 });
 
